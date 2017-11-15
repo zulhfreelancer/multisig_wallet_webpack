@@ -41,6 +41,9 @@ window.App = {
       accounts = accs;
       account = accounts[0];
 
+      // show all addresses given by testrpc
+      document.getElementById("addresses").innerHTML = accounts.join("<br>");
+
       App.basicInfoUpdate();
     });
   },
@@ -54,10 +57,26 @@ window.App = {
 
   submitEtherToWallet: function() {
     MyWallet.deployed().then(function(instance){
+      // using `return` is a must - otherwise, you can't use the promise's `then()` on the next line
       return instance.sendTransaction({from: account, to: instance.address, value: web3.toWei(5, 'ether')});
     }).then(function(result){
       // this callback only get called when the transaction is mined
       App.basicInfoUpdate();
+    });
+  },
+
+  submitTransaction: function() {
+    var _to     = document.getElementById("to").value;
+    var _amount = parseInt( document.getElementById("amount").value );
+    var _reason = document.getElementById("reason").value;
+    MyWallet.deployed().then(function(instance){
+      // using `return` is a must - otherwise, you can't use the promise's `then()` on the next line
+      return instance.spendMoney(_to, web3.toWei(_amount, 'finney'), _reason, {from: accounts[0]});
+    }).then(function(result){
+      console.log(result);
+      App.basicInfoUpdate();
+    }).catch(function(err){
+      console.error(err);
     });
   },
 
