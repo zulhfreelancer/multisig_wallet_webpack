@@ -8,10 +8,10 @@ import { default as Web3} from 'web3';
 import { default as contract } from 'truffle-contract'
 
 // Import our contract artifacts and turn them into usable abstractions.
-import metacoin_artifacts from '../../build/contracts/MetaCoin.json'
+import myWallet_artifacts from '../../build/contracts/MyWallet.json'
 
-// MetaCoin is our usable abstraction, which we'll use through the code below.
-var MetaCoin = contract(metacoin_artifacts);
+// MyWallet is our usable abstraction, which we'll use through the code below.
+var MyWallet = contract(myWallet_artifacts);
 
 // The following code is simple to show off interacting with your contracts.
 // As your needs grow you will likely need to change its form and structure.
@@ -24,7 +24,7 @@ window.App = {
     var self = this;
 
     // Bootstrap the MetaCoin abstraction for Use.
-    MetaCoin.setProvider(web3.currentProvider);
+    MyWallet.setProvider(web3.currentProvider);
 
     // Get the initial account balance so it can be displayed.
     web3.eth.getAccounts(function(err, accs) {
@@ -41,51 +41,26 @@ window.App = {
       accounts = accs;
       account = accounts[0];
 
-      self.refreshBalance();
+      App.basicInfoUpdate();
     });
   },
 
-  setStatus: function(message) {
-    var status = document.getElementById("status");
-    status.innerHTML = message;
-  },
-
-  refreshBalance: function() {
-    var self = this;
-
-    var meta;
-    MetaCoin.deployed().then(function(instance) {
-      meta = instance;
-      return meta.getBalance.call(account, {from: account});
-    }).then(function(value) {
-      var balance_element = document.getElementById("balance");
-      balance_element.innerHTML = value.valueOf();
-    }).catch(function(e) {
-      console.log(e);
-      self.setStatus("Error getting balance; see log.");
+  basicInfoUpdate: function() {
+    MyWallet.deployed().then(function(instance){
+      document.getElementById("walletAddress").innerHTML = instance.address;
+      document.getElementById("walletEther").innerHTML   = web3.fromWei( web3.eth.getBalance(instance.address).toNumber(), "ether");
     });
   },
 
-  sendCoin: function() {
-    var self = this;
-
-    var amount = parseInt(document.getElementById("amount").value);
-    var receiver = document.getElementById("receiver").value;
-
-    this.setStatus("Initiating transaction... (please wait)");
-
-    var meta;
-    MetaCoin.deployed().then(function(instance) {
-      meta = instance;
-      return meta.sendCoin(receiver, amount, {from: account});
-    }).then(function() {
-      self.setStatus("Transaction complete!");
-      self.refreshBalance();
-    }).catch(function(e) {
-      console.log(e);
-      self.setStatus("Error sending coin; see log.");
+  submitEtherToWallet: function() {
+    MyWallet.deployed().then(function(instance){
+      return instance.sendTransaction({from: account, to: instance.address, value: web3.toWei(5, 'ether')});
+    }).then(function(result){
+      // this callback only get called when the transaction is mined
+      App.basicInfoUpdate();
     });
-  }
+  },
+
 };
 
 window.addEventListener('load', function() {
