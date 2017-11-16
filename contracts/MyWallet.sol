@@ -3,6 +3,7 @@ pragma solidity ^0.4.0;
 import "./mortal.sol";
 
 // inherit from `mortal` contract
+// `indexed` in the `event` line is to help us filter or search the events easily later
 contract MyWallet is mortal {
     event receivedFunds(address _from, uint256 _amount);
     event proposalReceived(address indexed _from, address indexed _to, string _reason);

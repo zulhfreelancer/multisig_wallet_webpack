@@ -23,7 +23,6 @@ window.App = {
   start: function() {
     var self = this;
 
-    // Bootstrap the MetaCoin abstraction for Use.
     MyWallet.setProvider(web3.currentProvider);
 
     // Get the initial account balance so it can be displayed.
@@ -45,6 +44,7 @@ window.App = {
       document.getElementById("addresses").innerHTML = accounts.join("<br>");
 
       App.basicInfoUpdate();
+      // App.listenToEventsPolling();
     });
   },
 
@@ -58,10 +58,11 @@ window.App = {
   submitEtherToWallet: function() {
     MyWallet.deployed().then(function(instance){
       // using `return` is a must - otherwise, you can't use the promise's `then()` on the next line
-      return instance.sendTransaction({from: account, to: instance.address, value: web3.toWei(5, 'ether')});
+      return instance.sendTransaction({from: account, to: instance.address, value: web3.toWei(1, 'ether')});
     }).then(function(result){
       // this callback only get called when the transaction is mined
       App.basicInfoUpdate();
+      // App.listenToEventsPolling();
     });
   },
 
@@ -71,13 +72,36 @@ window.App = {
     var _reason = document.getElementById("reason").value;
     MyWallet.deployed().then(function(instance){
       // using `return` is a must - otherwise, you can't use the promise's `then()` on the next line
-      return instance.spendMoney(_to, web3.toWei(_amount, 'finney'), _reason, {from: accounts[0]});
+      // return instance.spendMoney(_to, web3.toWei(_amount, 'finney'), _reason, {from: accounts[0], gas: 500000});
+
+      // uncomment line below and comment line on top to test the `proposalReceived` event inside the UI
+      return instance.spendMoney(_to, web3.toWei(_amount, 'finney'), _reason, {from: accounts[1], gas: 500000});
     }).then(function(result){
       console.log(result);
       App.basicInfoUpdate();
     }).catch(function(err){
       console.error(err);
     });
+  },
+
+  // polling means we keep asking server `do you new events now? do you new events now?`
+  // it's not like pub/sub in WebSocket
+  // if you look closer at the `testrpc` window, you will notice a lot of `eth_getFilterChanges` calls
+  listenToEventsPolling: function() {
+    MyWallet.deployed().then(function(instance){
+      instance.receivedFunds({},{fromBlock:0, toBlock:'latest'}).watch(function(_error, _event){
+        // append to DOM
+        document.getElementById("fundEvents").innerHTML += JSON.stringify(_event);
+      });
+      instance.proposalReceived({},{fromBlock:0, toBlock:'latest'}).watch(function(_error, _event){
+        // append to DOM
+        document.getElementById("proposalEvents").innerHTML += JSON.stringify(_event);
+      });
+    });
+  },
+
+  confirmTransaction: function() {
+    // todo
   },
 
 };
