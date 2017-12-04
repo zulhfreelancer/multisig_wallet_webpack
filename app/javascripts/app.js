@@ -25,6 +25,14 @@ window.App = {
 
     MyWallet.setProvider(web3.currentProvider);
 
+    // dirty hack for web3@1.0.0 support for localhost testrpc
+    // see https://github.com/trufflesuite/truffle-contract/issues/56#issuecomment-331084530
+    if (typeof MyWallet.currentProvider.sendAsync !== "function") {
+      MyWallet.currentProvider.sendAsync = function() {
+        return MyWallet.currentProvider.send.apply(MyWallet.currentProvider, arguments);
+      };
+    }
+
     // Get the initial account balance so it can be displayed.
     web3.eth.getAccounts(function(err, accs) {
       if (err != null) {
@@ -45,20 +53,24 @@ window.App = {
 
       App.basicInfoUpdate();
       // App.listenToEventsPolling();
+      App.listenToEventAndPrintIt();
+
     });
   },
 
   basicInfoUpdate: function() {
     MyWallet.deployed().then(function(instance){
       document.getElementById("walletAddress").innerHTML = instance.address;
-      document.getElementById("walletEther").innerHTML   = web3.fromWei( web3.eth.getBalance(instance.address).toNumber(), "ether");
+      web3.eth.getBalance(instance.address).then(function(result){
+        document.getElementById("walletEther").innerHTML   = web3.utils.fromWei( result, "ether");
+      });
     });
   },
 
   submitEtherToWallet: function() {
     MyWallet.deployed().then(function(instance){
       // using `return` is a must - otherwise, you can't use the promise's `then()` on the next line
-      return instance.sendTransaction({from: account, to: instance.address, value: web3.toWei(1, 'ether')});
+      return instance.sendTransaction({from: account, to: instance.address, value: web3.utils.toWei(1, 'ether')});
     }).then(function(result){
       // this callback only get called when the transaction is mined
       App.basicInfoUpdate();
@@ -72,10 +84,10 @@ window.App = {
     var _reason = document.getElementById("reason").value;
     MyWallet.deployed().then(function(instance){
       // using `return` is a must - otherwise, you can't use the promise's `then()` on the next line
-      // return instance.spendMoney(_to, web3.toWei(_amount, 'finney'), _reason, {from: accounts[0], gas: 500000});
+      // return instance.spendMoney(_to, web3.utils.toWei(_amount, 'finney'), _reason, {from: accounts[0], gas: 500000});
 
       // uncomment line below and comment line on top to test the `proposalReceived` event inside the UI
-      return instance.spendMoney(_to, web3.toWei(_amount, 'finney'), _reason, {from: accounts[1], gas: 500000});
+      return instance.spendMoney(_to, web3.utils.toWei(_amount, 'finney'), _reason, {from: accounts[1], gas: 500000});
     }).then(function(result){
       console.log(result);
       App.basicInfoUpdate();
@@ -91,11 +103,32 @@ window.App = {
     MyWallet.deployed().then(function(instance){
       instance.receivedFunds({},{fromBlock:0, toBlock:'latest'}).watch(function(_error, _event){
         // append to DOM
+        console.log(_event);
         document.getElementById("fundEvents").innerHTML += JSON.stringify(_event);
       });
       instance.proposalReceived({},{fromBlock:0, toBlock:'latest'}).watch(function(_error, _event){
         // append to DOM
         document.getElementById("proposalEvents").innerHTML += JSON.stringify(_event);
+      });
+    });
+  },
+
+  listenToEventAndPrintIt: function() {
+    MyWallet.deployed().then(function(instance){
+      return instance.receivedFunds({},{fromBlock:0, toBlock:'latest'});
+    })
+    .then(function(result){
+      return result.options.topics;
+    })
+    .then(function(topicArray){
+      web3.eth.subscribe('logs', {fromBlock: 0, topics: []}, function(error, result){
+        if (error) {
+          console.log(error);
+        } else {
+          console.log(result);
+        }
+      }).on('data', function(log){
+        console.log('subscribe', log);
       });
     });
   },
@@ -113,9 +146,10 @@ window.addEventListener('load', function() {
     // Use Mist/MetaMask's provider
     window.web3 = new Web3(web3.currentProvider);
   } else {
-    console.warn("No web3 detected. Falling back to http://127.0.0.1:8545. You should remove this fallback when you deploy live, as it's inherently insecure. Consider switching to Metamask for development. More info here: http://truffleframework.com/tutorials/truffle-and-metamask");
+    console.warn("No web3 detected.");
     // fallback - use your fallback strategy (local node / hosted node + in-dapp id mgmt / fail)
-    window.web3 = new Web3(new Web3.providers.HttpProvider("http://127.0.0.1:8545"));
+    // window.web3 = new Web3(new Web3.providers.HttpProvider("http://127.0.0.1:8545"));
+    window.web3 = new Web3( new Web3.providers.WebsocketProvider('ws://0.0.0.0:8546') );
   }
 
   App.start();
